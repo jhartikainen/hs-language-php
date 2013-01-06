@@ -45,7 +45,7 @@ langDef = emptyDef { Token.commentStart = "/*"
                    , Token.reservedNames = [ "if", "else", "elseif", "while", "break", "do", "for", "continue"
                                            , "true", "false", "null", "and", "or", "class", "function", "return"
                                            ]
-                   , Token.reservedOpNames = [ "=", "+", "-", "*", "/", "%", "<", ">", "and", "or", "||", "&&", "!" ]
+                   , Token.reservedOpNames = [ "=", "==", "->", ".", "+", "-", "*", "/", "%", "<", ">", "and", "or", "||", "&&", "!" ]
                    }
 
 lexer = Token.makeTokenParser langDef
@@ -63,6 +63,7 @@ whiteSpace = Token.whiteSpace lexer
 
 whileParser :: Parser PHPStmt
 whileParser = do
+    string "<?php"
     whiteSpace
     seq <- sequenceOfStmt
     eof
