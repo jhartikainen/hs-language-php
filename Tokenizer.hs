@@ -18,7 +18,7 @@ data PHPVariable = PHPVariable String | PHPVariableVariable String deriving (Sho
 
 data PHPExpr = Literal PHPValue
              | Variable PHPVariable
-             | Assign String PHPExpr
+             | Assign PHPVariable PHPExpr
              | Neg PHPExpr
              | Not PHPExpr
              | BinaryExpr BinOp PHPExpr PHPExpr
@@ -26,9 +26,13 @@ data PHPExpr = Literal PHPValue
 
 data BinOp = Add | Subtract | Multiply | Divide | Modulo | And | Or | Greater | Less deriving (Show)
 
+data ElseExpr = Else PHPStmt
+              | ElseIf PHPExpr PHPStmt (Maybe ElseExpr)
+              deriving (Show)
+
 data PHPStmt = Seq [PHPStmt]
              | Expression PHPExpr
-             | If PHPExpr PHPStmt PHPStmt
+             | If PHPExpr PHPStmt (Maybe ElseExpr)
              | While PHPExpr PHPStmt
              deriving (Show)
 
@@ -58,44 +62,62 @@ semi = Token.semi lexer
 whiteSpace = Token.whiteSpace lexer
 
 whileParser :: Parser PHPStmt
-whileParser = whiteSpace >> statement
-
-statement :: Parser PHPStmt
-statement = parens statement <|> sequenceOfStmt
+whileParser = do
+    whiteSpace
+    seq <- sequenceOfStmt
+    eof
+    return seq
 
 sequenceOfStmt = do
-    list <- (sepBy1 statement' semi)
-    return $ if length list == 1 then head list else Seq list
+    list <- many1 oneStatement
+    return $ Seq list
 
-statement' :: Parser PHPStmt
-statement' = ifStmt <|> liftM Expression phpExpression
+-- Parse a single PHP statement
+oneStatement :: Parser PHPStmt
+oneStatement = ifStmt <|> stmtExpr
+    -- Special case for an expression that's a statement
+    -- Expressions can be used without a semicolon in the end in ifs or whatever, 
+    -- but a valid statement expression needs a semi in the end
+    where stmtExpr = do
+              expr <- phpExpression
+              semi
+              return $ Expression expr
 
 ifStmt :: Parser PHPStmt
 ifStmt = do
     reserved "if"
     cond <- parens phpExpression
-    stmt1 <- braces statement
+    stmt1 <- (braces sequenceOfStmt) <|> oneStatement
+    cont <- optionMaybe (elseIfStmt <|> elseStmt)
+    return $ If cond stmt1 cont
+
+elseStmt :: Parser ElseExpr
+elseStmt = do
     reserved "else"
-    stmt2 <- braces statement
-    return $ If cond stmt1 stmt2
+    stmt <- (braces sequenceOfStmt) <|> oneStatement
+    return $ Else stmt
+
+elseIfStmt :: Parser ElseExpr
+elseIfStmt = do
+    reserved "elseif"
+    cond <- parens phpExpression
+    stmt <- (braces sequenceOfStmt) <|> oneStatement
+    cont <- optionMaybe (elseIfStmt <|> elseStmt)
+    return $ ElseIf cond stmt cont
 
 assignExpr :: Parser PHPExpr
 assignExpr = do
-    var <- varName
+    var <- variableExpr
     reservedOp "="
     expr <- phpExpression
     return $ Assign var expr
 
-varName :: Parser String
-varName = do
-    dollar <- char '$'
-    name <- identifier
-    return $ dollar : name
-
 variableExpr :: Parser PHPVariable
-variableExpr = do
-    name <- varName
-    return $ PHPVariable name
+variableExpr = try varVarExpr <|> varExpr
+    where
+        varExpr = char '$' >> fmap PHPVariable identifier
+        varVarExpr = char '$' >> char '$' >> fmap PHPVariableVariable identifier
+
 
 phpExpression :: Parser PHPExpr
 phpExpression = buildExpressionParser phpOperators phpTerm
