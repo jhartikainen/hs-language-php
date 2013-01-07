@@ -33,3 +33,9 @@ castToFloat PHPNull = PHPFloat 0
 castToFloat (PHPBool a) | a == True  = PHPFloat 1
                         | a == False = PHPFloat 0
 
+castToString :: PHPValue -> PHPValue
+castToString a@(PHPString _) = a
+castToString (PHPInt a) = PHPString (show a)
+castToString (PHPFloat a) = PHPString (show a)
+castToString a@(PHPBool _) = castToString $ castToInt a
+castToString PHPNull = PHPString ""

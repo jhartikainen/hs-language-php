@@ -37,6 +37,13 @@ testSuite = testGroup "Parser"
                     show $ Seq [Expression (Call (FunctionCall "test") [Literal (PHPInt 1)])]))
             , testCase "Call: two args with whitespace" (testFile "tests/call_two_with_white.php" (
                     show $ Seq [Expression (Call (FunctionCall "test") [Literal (PHPBool True),Literal (PHPInt 1)])]))
+            , testCase "Function: No args, no body" (testFile "tests/func_no_args_no_body.php" (
+                    show $ Seq [Function "foo" [] (Seq [])]))
+            , testCase "Function: Some args, no body" (testFile "tests/func_some_args_no_body.php" (
+                    show $ Seq [Function "foo" [ FunctionArgumentDef {argName = "test", argDefault = Nothing}
+                                               , FunctionArgumentDef {argName = "test2", argDefault = Nothing}] (Seq [])]))
+            , testCase "Function: No args, simple body" (testFile "tests/func_no_args_simple_body.php" (
+                    show $ Seq [Function "foo" [] (Seq [Expression (Assign (PHPVariable "hello") (Literal (PHPInt 1)))])]))
             ]
 
 testFile :: FilePath -> String -> IO ()

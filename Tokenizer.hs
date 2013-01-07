@@ -32,10 +32,16 @@ data ElseExpr = Else PHPStmt
               | ElseIf PHPExpr PHPStmt (Maybe ElseExpr)
               deriving (Show)
 
+data FunctionArgumentDef = FunctionArgumentDef { argName :: String
+                                               , argDefault :: Maybe PHPValue
+                                               }
+                                               deriving (Show)
+
 data PHPStmt = Seq [PHPStmt]
              | Expression PHPExpr
              | If PHPExpr PHPStmt (Maybe ElseExpr)
              | While PHPExpr PHPStmt
+             | Function String [FunctionArgumentDef] PHPStmt
              deriving (Show)
 
 
@@ -79,7 +85,7 @@ statementZeroOrMore = liftM Seq $ many oneStatement
 
 -- Parse a single PHP statement
 oneStatement :: Parser PHPStmt
-oneStatement = ifStmt <|> stmtExpr
+oneStatement = ifStmt <|> functionStmt <|> stmtExpr
     -- Special case for an expression that's a statement
     -- Expressions can be used without a semicolon in the end in ifs or whatever, 
     -- but a valid statement expression needs a semi in the end
@@ -87,6 +93,20 @@ oneStatement = ifStmt <|> stmtExpr
               expr <- phpExpression
               semi
               return $ Expression expr
+
+functionStmt :: Parser PHPStmt
+functionStmt = do
+        reserved "function"
+        name <- identifier
+        argDefs <- parens $ sepBy argDefExpr (optional (Token.symbol lexer ","))
+        body <- braces statementZeroOrMore
+        return $ Function name argDefs body
+    where
+        argDefExpr = do
+            char '$'
+            name <- identifier
+
+            return $ FunctionArgumentDef name Nothing
 
 ifStmt :: Parser PHPStmt
 ifStmt = do
