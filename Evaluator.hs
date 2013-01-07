@@ -134,7 +134,10 @@ makeFunction name argDefs body =
     in (\args -> do
           requiredArgsCheck args
           applyArgs args
-          liftM stmtVal $ evalStmt body
+          result <- evalStmt body 
+          case result of
+            Nothing -> return PHPNull
+            Just v -> return v
           )
 
 testFun :: PHPFunctionType
@@ -194,10 +197,18 @@ stringFromPHPValue :: PHPValue -> String
 stringFromPHPValue (PHPString s) = s
 stringFromPHPValue _ = error "Non-PHPString values shouldn't be attempted to be converted to plain strings"
 
-evalStmt :: PHPStmt -> PHPEval PHPStmt
-evalStmt (Seq xs) = foldM (\_ x -> evalStmt x) (Seq []) xs
-evalStmt (Expression expr) = liftM Expression (evalExpr expr)
-evalStmt (Function name argDefs body) = defineFunction name argDefs body >> return (Seq [])
+evalStmt :: PHPStmt -> PHPEval (Maybe PHPValue)
+evalStmt (Seq xs) = foldSeq xs
+    where foldSeq (x:xs) = do
+              result <- evalStmt x
+              case result of
+                Nothing -> foldSeq xs
+                Just v -> return $ Just v
+          foldSeq [] = return Nothing
+
+evalStmt (Expression expr) = evalExpr expr >> return Nothing
+evalStmt (Function name argDefs body) = defineFunction name argDefs body >> return Nothing
+evalStmt (Return expr) = liftM (Just . exprVal) (evalExpr expr)
 
 runPHPEval :: EvalConfig -> (PHPEval a) -> IO (Either PHPError a)
 runPHPEval config eval = runErrorT $ runReaderT eval config
