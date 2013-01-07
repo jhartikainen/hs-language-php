@@ -109,28 +109,33 @@ setVar var val = do
 
 lookupFunction :: String -> PHPEval (Maybe PHPFunctionType)
 lookupFunction name = do
-    if (name == "test")
-      then return $ Just testFun
-      else return Nothing
+    gref <- globalFunctionsRef
+    globalFuncs <- liftIO $ readIORef gref
+    return $ lookup name globalFuncs
 
-defineFunction :: String -> [FunctionArgumentDef] -> PHPStmt -> PHPEval PHPFunctionType
-defineFunction name argDefs body =
+defineFunction :: String -> [FunctionArgumentDef] -> PHPStmt -> PHPEval ()
+defineFunction name args body = do
+    gref <- globalFunctionsRef
+    globalFuncs <- liftIO $ readIORef gref
+    case lookup name globalFuncs of
+      Just _  -> throwError $ Default ("Cannot redeclare function " ++ name)
+      Nothing -> liftIO $ do
+        writeIORef gref ((name, makeFunction name args body) : globalFuncs) 
+        return ()
+
+makeFunction :: String -> [FunctionArgumentDef] -> PHPStmt -> PHPFunctionType
+makeFunction name argDefs body =
     let requiredArgsCount = length $ dropWhile (isJust . argDefault) $ reverse argDefs
         requiredArgsCheck args = when (length args /= requiredArgsCount) (throwError $ Default $ "Not enough arguments to function " ++ name)
         applyArgs args = mapM (uncurry setVarOrDef) $ zip argDefs $ concat [map Just args, repeat mzero]
         setVarOrDef def val = case val of
                                 Just v  -> setVar (argName def) v
                                 Nothing -> setVar (argName def) (fromJust $ argDefault def)
-    in do
-        gref <- globalFunctionsRef
-        globalFuncs <- liftIO $ readIORef gref
-        case lookup name globalFuncs of
-          Just _  -> throwError $ Default ("Cannot redeclare function " ++ name)
-          Nothing -> return (\args -> do
-              requiredArgsCheck args
-              applyArgs args
-              liftM stmtVal $ evalStmt body
-              )
+    in (\args -> do
+          requiredArgsCheck args
+          applyArgs args
+          liftM stmtVal $ evalStmt body
+          )
 
 testFun :: PHPFunctionType
 testFun args = do
@@ -192,6 +197,7 @@ stringFromPHPValue _ = error "Non-PHPString values shouldn't be attempted to be 
 evalStmt :: PHPStmt -> PHPEval PHPStmt
 evalStmt (Seq xs) = foldM (\_ x -> evalStmt x) (Seq []) xs
 evalStmt (Expression expr) = liftM Expression (evalExpr expr)
+evalStmt (Function name argDefs body) = defineFunction name argDefs body >> return (Seq [])
 
 runPHPEval :: EvalConfig -> (PHPEval a) -> IO (Either PHPError a)
 runPHPEval config eval = runErrorT $ runReaderT eval config
