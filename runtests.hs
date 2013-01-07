@@ -47,6 +47,7 @@ testSuite = testGroup "Parser"
             , testCase "Function: Args with defaults" (testFile "tests/func_args_with_defaults.php" (
                     show $ Seq [Function "x" [ FunctionArgumentDef {argName = "a", argDefault = Just (PHPInt 1)}
                                              , FunctionArgumentDef {argName = "b", argDefault = Nothing}] (Seq [])]))
+            , testCase "Return" (testFile "tests/return.php" (show $ Seq [Return (Literal (PHPBool True))]))
             ]
 
 testFile :: FilePath -> String -> IO ()

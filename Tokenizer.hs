@@ -40,8 +40,8 @@ data FunctionArgumentDef = FunctionArgumentDef { argName :: String
 data PHPStmt = Seq [PHPStmt]
              | Expression PHPExpr
              | If PHPExpr PHPStmt (Maybe ElseExpr)
-             | While PHPExpr PHPStmt
              | Function String [FunctionArgumentDef] PHPStmt
+             | Return PHPExpr
              deriving (Show)
 
 
@@ -85,7 +85,7 @@ statementZeroOrMore = liftM Seq $ many oneStatement
 
 -- Parse a single PHP statement
 oneStatement :: Parser PHPStmt
-oneStatement = ifStmt <|> functionStmt <|> stmtExpr
+oneStatement = ifStmt <|> functionStmt <|> returnStmt <|> stmtExpr
     -- Special case for an expression that's a statement
     -- Expressions can be used without a semicolon in the end in ifs or whatever, 
     -- but a valid statement expression needs a semi in the end
@@ -93,6 +93,13 @@ oneStatement = ifStmt <|> functionStmt <|> stmtExpr
               expr <- phpExpression
               semi
               return $ Expression expr
+
+returnStmt :: Parser PHPStmt
+returnStmt = do
+    reserved "return" 
+    ret <- liftM Return phpExpression
+    semi
+    return $ ret
 
 functionStmt :: Parser PHPStmt
 functionStmt = do
