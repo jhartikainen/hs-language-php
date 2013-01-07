@@ -15,6 +15,7 @@ data PHPValue = PHPString String
               deriving (Show)
 
 data PHPVariable = PHPVariable String | PHPVariableVariable String deriving (Show)
+data FunctionCall = FunctionCall String | FunctionCallVar PHPVariable deriving (Show)
 
 data PHPExpr = Literal PHPValue
              | Variable PHPVariable
@@ -22,6 +23,7 @@ data PHPExpr = Literal PHPValue
              | Neg PHPExpr
              | Not PHPExpr
              | BinaryExpr BinOp PHPExpr PHPExpr
+             | Call FunctionCall [PHPExpr]
              deriving (Show)
 
 data BinOp = Add | Subtract | Multiply | Divide | Modulo | And | Or | Greater | Less deriving (Show)
@@ -40,7 +42,7 @@ data PHPStmt = Seq [PHPStmt]
 langDef = emptyDef { Token.commentStart = "/*"
                    , Token.commentEnd = "*/"
                    , Token.commentLine = "//"
-                   , Token.identStart = letter <|> char '$'
+                   , Token.identStart = letter
                    , Token.identLetter = alphaNum
                    , Token.reservedNames = [ "if", "else", "elseif", "while", "break", "do", "for", "continue"
                                            , "true", "false", "null", "and", "or", "class", "function", "return"
@@ -138,9 +140,24 @@ phpOperators = [ [Prefix (reservedOp "-" >> return (Neg))]
                ]
 
 phpTerm = parens phpExpression
+       <|> try functionCallExpr
        <|> try assignExpr
        <|> liftM Variable variableExpr
        <|> liftM Literal phpValue
+
+functionCallExpr :: Parser PHPExpr
+functionCallExpr = try varCall <|> nameCall
+    where
+        varCall = do
+            var <- variableExpr
+            args <- parens argList
+            return $ Call (FunctionCallVar var) args
+        nameCall = do
+            name <- identifier
+            args <- parens argList
+            return $ Call (FunctionCall name) args
+        argList = sepBy phpExpression (optional (Token.symbol lexer ","))
+
 
 phpValue :: Parser PHPValue
 phpValue = (reserved "true" >> return (PHPBool True))

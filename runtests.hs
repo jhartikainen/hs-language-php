@@ -33,6 +33,10 @@ testSuite = testGroup "Parser"
                                     (Just (Else (Seq [])))))]))
             , testCase "Math: simple add" (testFile "tests/math_simple_add.php" (
                     show $ Seq [Expression (BinaryExpr Add (Literal (PHPInt 1)) (Literal (PHPInt 1)))]))
+            , testCase "Call: one arg" (testFile "tests/call_1_arg.php" (
+                    show $ Seq [Expression (Call (FunctionCall "test") [Literal (PHPInt 1)])]))
+            , testCase "Call: two args with whitespace" (testFile "tests/call_two_with_white.php" (
+                    show $ Seq [Expression (Call (FunctionCall "test") [Literal (PHPBool True),Literal (PHPInt 1)])]))
             ]
 
 testFile :: FilePath -> String -> IO ()
