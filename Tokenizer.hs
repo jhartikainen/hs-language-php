@@ -73,6 +73,8 @@ sequenceOfStmt = do
     list <- many1 oneStatement
     return $ Seq list
 
+statementZeroOrMore = liftM Seq $ many oneStatement
+
 -- Parse a single PHP statement
 oneStatement :: Parser PHPStmt
 oneStatement = ifStmt <|> stmtExpr
@@ -88,21 +90,21 @@ ifStmt :: Parser PHPStmt
 ifStmt = do
     reserved "if"
     cond <- parens phpExpression
-    stmt1 <- (braces sequenceOfStmt) <|> oneStatement
+    stmt1 <- (braces statementZeroOrMore) <|> oneStatement
     cont <- optionMaybe (elseIfStmt <|> elseStmt)
     return $ If cond stmt1 cont
 
 elseStmt :: Parser ElseExpr
 elseStmt = do
     reserved "else"
-    stmt <- (braces sequenceOfStmt) <|> oneStatement
+    stmt <- (braces statementZeroOrMore) <|> oneStatement
     return $ Else stmt
 
 elseIfStmt :: Parser ElseExpr
 elseIfStmt = do
     reserved "elseif"
     cond <- parens phpExpression
-    stmt <- (braces sequenceOfStmt) <|> oneStatement
+    stmt <- (braces statementZeroOrMore) <|> oneStatement
     cont <- optionMaybe (elseIfStmt <|> elseStmt)
     return $ ElseIf cond stmt cont
 

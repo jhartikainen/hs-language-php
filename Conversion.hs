@@ -2,25 +2,34 @@ module Conversion where
 
 import Tokenizer
 
-phpValToBool :: PHPValue -> Bool
-phpValToBool (PHPString a) | a == ""   = False
-                           | a == "0"  = False
-                           | otherwise = True
+castToBool :: PHPValue -> PHPValue
+castToBool (PHPString a) | a == ""   = PHPBool False
+                         | a == "0"  = PHPBool False
+                         | otherwise = PHPBool True
 
-phpValToBool (PHPInt a) | a == 0    = False
-                        | otherwise = True
+castToBool (PHPInt a) | a == 0    = PHPBool False
+                      | otherwise = PHPBool True
 
-phpValToBool (PHPBool a) = a
+castToBool a@(PHPBool _) = a
 
-phpValToBool (PHPFloat a) | a == 0    = False
-                          | otherwise = True
+castToBool (PHPFloat a) | a == 0    = PHPBool False
+                        | otherwise = PHPBool True
 
-phpValToBool PHPNull = False
+castToBool PHPNull = PHPBool False
 
-phpValToInt :: PHPValue -> Integer
-phpValToInt (PHPString _) = error "string to int behavior is not implemented"
-phpValToInt (PHPInt a) = a
-phpValToInt (PHPFloat a) = floor a
-phpValToInt (PHPBool a) | a == True  = 1
-                        | a == False = 0
-phpValToInt PHPNull = 0
+castToInt :: PHPValue -> PHPValue
+castToInt (PHPString _) = error "string to int behavior is not implemented"
+castToInt a@(PHPInt _) = a
+castToInt (PHPFloat a) = PHPInt $ floor a
+castToInt (PHPBool a) | a == True  = PHPInt 1
+                      | a == False = PHPInt 0
+castToInt PHPNull = PHPInt 0
+
+castToFloat :: PHPValue -> PHPValue
+castToFloat (PHPString _) = error "undefined behavior for string to float"
+castToFloat (PHPInt a) = PHPFloat $ fromInteger a
+castToFloat a@(PHPFloat _) = a
+castToFloat PHPNull = PHPFloat 0
+castToFloat (PHPBool a) | a == True  = PHPFloat 1
+                        | a == False = PHPFloat 0
+
