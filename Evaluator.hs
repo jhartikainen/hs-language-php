@@ -210,5 +210,15 @@ evalStmt (Expression expr) = evalExpr expr >> return Nothing
 evalStmt (Function name argDefs body) = defineFunction name argDefs body >> return Nothing
 evalStmt (Return expr) = liftM (Just . exprVal) (evalExpr expr)
 
+evalStmt (If condExpr body mElse) = do
+    condResult <- liftM exprVal $ evalExpr condExpr
+    if isTruthy condResult
+      then evalStmt body
+      else maybe (return Nothing) evalElseExpr mElse
+
+evalElseExpr :: ElseExpr -> PHPEval (Maybe PHPValue)
+evalElseExpr (Else stmt) = evalStmt stmt
+evalElseExpr (ElseIf condExpr body mElse) = evalStmt $ If condExpr body mElse
+
 runPHPEval :: EvalConfig -> (PHPEval a) -> IO (Either PHPError a)
 runPHPEval config eval = runErrorT $ runReaderT eval config

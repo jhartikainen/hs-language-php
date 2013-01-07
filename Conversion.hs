@@ -17,6 +17,10 @@ castToBool (PHPFloat a) | a == 0    = PHPBool False
 
 castToBool PHPNull = PHPBool False
 
+isTruthy :: PHPValue -> Bool
+isTruthy = getBool . castToBool
+    where getBool (PHPBool b) = b
+
 castToInt :: PHPValue -> PHPValue
 castToInt (PHPString _) = error "string to int behavior is not implemented"
 castToInt a@(PHPInt _) = a
