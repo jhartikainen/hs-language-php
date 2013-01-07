@@ -44,6 +44,9 @@ testSuite = testGroup "Parser"
                                                , FunctionArgumentDef {argName = "test2", argDefault = Nothing}] (Seq [])]))
             , testCase "Function: No args, simple body" (testFile "tests/func_no_args_simple_body.php" (
                     show $ Seq [Function "foo" [] (Seq [Expression (Assign (PHPVariable "hello") (Literal (PHPInt 1)))])]))
+            , testCase "Function: Args with defaults" (testFile "tests/func_args_with_defaults.php" (
+                    show $ Seq [Function "x" [ FunctionArgumentDef {argName = "a", argDefault = Just (PHPInt 1)}
+                                             , FunctionArgumentDef {argName = "b", argDefault = Nothing}] (Seq [])]))
             ]
 
 testFile :: FilePath -> String -> IO ()

@@ -126,7 +126,7 @@ defineFunction name args body = do
 makeFunction :: String -> [FunctionArgumentDef] -> PHPStmt -> PHPFunctionType
 makeFunction name argDefs body =
     let requiredArgsCount = length $ dropWhile (isJust . argDefault) $ reverse argDefs
-        requiredArgsCheck args = when (length args /= requiredArgsCount) (throwError $ Default $ "Not enough arguments to function " ++ name)
+        requiredArgsCheck args = when (length args < requiredArgsCount) (throwError $ Default $ "Not enough arguments to function " ++ name)
         applyArgs args = mapM (uncurry setVarOrDef) $ zip argDefs $ concat [map Just args, repeat mzero]
         setVarOrDef def val = case val of
                                 Just v  -> setVar (argName def) v

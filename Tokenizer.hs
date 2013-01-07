@@ -105,8 +105,11 @@ functionStmt = do
         argDefExpr = do
             char '$'
             name <- identifier
+            defValue <- optionMaybe $ do
+                Token.symbol lexer "="
+                phpValue
 
-            return $ FunctionArgumentDef name Nothing
+            return $ FunctionArgumentDef name defValue
 
 ifStmt :: Parser PHPStmt
 ifStmt = do
