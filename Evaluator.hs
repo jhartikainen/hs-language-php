@@ -8,15 +8,6 @@ import Control.Monad.Error
 import Control.Monad.Reader
 import Control.Monad.Trans.Class
 
-phpSum :: PHPValue -> PHPValue -> PHPValue
-phpSum (PHPFloat a) (PHPFloat b) = PHPFloat (a + b)
-phpSum (PHPInt a) (PHPInt b) = PHPInt (a + b)
-phpSum a@(PHPFloat _) b = phpSum a (castToFloat b)
-phpSum a b@(PHPFloat _) = phpSum (castToFloat a) b
-phpSum a@(PHPInt _) b = phpSum a (castToInt b)
-phpSum a b@(PHPInt _) = phpSum (castToInt a) b
-phpSum a b = phpSum (castToInt a) (castToInt b)
-
 data PHPError = UndefinedVariable String
               | NotEnoughArguments String
               | NotFound String String
@@ -149,11 +140,24 @@ testFun args = do
           return $ PHPNull
 
 evalExpr :: PHPExpr -> PHPEval PHPExpr
-evalExpr (BinaryExpr op a b) = case op of
-                                 Add -> do
-                                     av <- liftM exprVal (evalExpr a)
-                                     bv <- liftM exprVal (evalExpr b)
-                                     return $ Literal $ phpSum av bv
+evalExpr (BinaryExpr op a b) = do
+        av <- liftM exprVal (evalExpr a)
+        bv <- liftM exprVal (evalExpr b)
+        return $ Literal $ case op of
+             Add      -> phpSum av bv
+             Subtract -> phpSubtract av bv
+             Multiply -> phpMultiply av bv
+             Divide   -> case phpDivide av bv of
+                           PHPBool _ -> error "Division by zero"
+                           v         -> v
+             Modulo   -> undefined
+             And      -> undefined
+             Or       -> undefined
+             Greater  -> undefined
+             Less     -> undefined
+             Equals   -> undefined
+             StrictEquals -> undefined
+
 evalExpr a@(Literal _) = return a
 evalExpr (Assign (PHPVariable varName) expr) = do
     v <- liftM exprVal (evalExpr expr)

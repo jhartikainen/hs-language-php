@@ -43,3 +43,38 @@ castToString (PHPInt a) = PHPString (show a)
 castToString (PHPFloat a) = PHPString (show a)
 castToString a@(PHPBool _) = castToString $ castToInt a
 castToString PHPNull = PHPString ""
+
+phpSum :: PHPValue -> PHPValue -> PHPValue
+phpSum (PHPFloat a) (PHPFloat b) = PHPFloat (a + b)
+phpSum (PHPInt a) (PHPInt b) = PHPInt (a + b)
+phpSum a@(PHPFloat _) b = phpSum a (castToFloat b)
+phpSum a b@(PHPFloat _) = phpSum (castToFloat a) b
+phpSum a@(PHPInt _) b = phpSum a (castToInt b)
+phpSum a b@(PHPInt _) = phpSum (castToInt a) b
+phpSum a b = phpSum (castToInt a) (castToInt b)
+
+phpSubtract :: PHPValue -> PHPValue -> PHPValue
+phpSubtract a b = uncurry sub $ makeCompatible (a, b)
+    where sub (PHPFloat a) (PHPFloat b) = PHPFloat (a - b)
+          sub (PHPInt a) (PHPInt b) = PHPInt (a - b)
+
+phpMultiply :: PHPValue -> PHPValue -> PHPValue
+phpMultiply a b = uncurry mul $ makeCompatible (a, b)
+    where mul (PHPFloat a) (PHPFloat b) = PHPFloat (a * b)
+          mul (PHPInt a) (PHPInt b) = PHPInt (a * b)
+
+phpDivide :: PHPValue -> PHPValue -> PHPValue
+phpDivide a b = uncurry div $ makeCompatible (a, b)
+    where div (PHPFloat a) (PHPFloat b) | b /= 0    = PHPFloat (a / b)
+                                        | otherwise = PHPBool False
+          div (PHPInt a) (PHPInt b) | b /= 0    = let f = (fromInteger a / fromInteger b)
+                                                  in if (fromIntegral $ floor f) == f
+                                                       then PHPInt (floor f)
+                                                       else PHPFloat f
+                                    | otherwise = PHPBool False
+
+makeCompatible :: (PHPValue, PHPValue) -> (PHPValue, PHPValue)
+makeCompatible (a@(PHPFloat _), b) = (a, castToFloat b)
+makeCompatible (a, b@(PHPFloat _)) = (castToFloat a, b)
+makeCompatible (a@(PHPInt _), b) = (a, castToInt b)
+makeCompatible (a, b@(PHPInt _)) = (castToInt a, b)

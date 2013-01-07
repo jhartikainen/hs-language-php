@@ -26,7 +26,7 @@ data PHPExpr = Literal PHPValue
              | Call FunctionCall [PHPExpr]
              deriving (Show)
 
-data BinOp = Add | Subtract | Multiply | Divide | Modulo | And | Or | Greater | Less deriving (Show)
+data BinOp = Add | Subtract | Multiply | Divide | Modulo | And | Or | Greater | Less | Equals | StrictEquals deriving (Show)
 
 data ElseExpr = Else PHPStmt
               | ElseIf PHPExpr PHPStmt (Maybe ElseExpr)
@@ -53,7 +53,7 @@ langDef = emptyDef { Token.commentStart = "/*"
                    , Token.reservedNames = [ "if", "else", "elseif", "while", "break", "do", "for", "continue"
                                            , "true", "false", "null", "and", "or", "class", "function", "return"
                                            ]
-                   , Token.reservedOpNames = [ "=", "==", "->", ".", "+", "-", "*", "/", "%", "<", ">", "and", "or", "||", "&&", "!" ]
+                   , Token.reservedOpNames = [ "=", "==", "===", "->", ".", "+", "-", "*", "/", "%", "<", ">", "and", "or", "||", "&&", "!" ]
                    }
 
 lexer = Token.makeTokenParser langDef
@@ -162,6 +162,8 @@ phpOperators = [ [Prefix (reservedOp "-" >> return (Neg))]
                , [Infix (reservedOp "/" >> return (BinaryExpr Divide)) AssocLeft]
                , [Infix (reservedOp "+" >> return (BinaryExpr Add)) AssocLeft]
                , [Infix (reservedOp "-" >> return (BinaryExpr Subtract)) AssocLeft]
+               , [Infix (reservedOp "==" >> return (BinaryExpr Equals)) AssocLeft]
+               , [Infix (reservedOp "===" >> return (BinaryExpr StrictEquals)) AssocLeft]
                , [Prefix (reservedOp "!" >> return (Not))]
                , [Infix (reservedOp "&&" >> return (BinaryExpr And)) AssocLeft]
                , [Infix (reservedOp "||" >> return (BinaryExpr Or)) AssocLeft]
