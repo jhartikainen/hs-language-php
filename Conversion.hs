@@ -1,6 +1,8 @@
 module Conversion where
 
 import Tokenizer
+import Text.Read
+import Data.Maybe
 
 castToBool :: PHPValue -> PHPValue
 castToBool (PHPString a) | a == ""   = PHPBool False
@@ -43,6 +45,13 @@ castToString (PHPInt a) = PHPString (show a)
 castToString (PHPFloat a) = PHPString (show a)
 castToString a@(PHPBool _) = castToString $ castToInt a
 castToString PHPNull = PHPString ""
+
+stringToNumeric :: PHPValue -> PHPValue
+stringToNumeric (PHPString a) = if isFloat a then PHPFloat $ read a else PHPInt $ fromMaybe 0 $ readMaybe a
+    where
+        isFloat a = elem 'E' a || elem 'e' a || elem '.' a
+
+stringToNumeric _ = error "Trying to convert non-string"
 
 phpSum :: PHPValue -> PHPValue -> PHPValue
 phpSum (PHPFloat a) (PHPFloat b) = PHPFloat (a + b)
