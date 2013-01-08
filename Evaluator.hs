@@ -151,12 +151,12 @@ evalExpr (BinaryExpr op a b) = do
                            PHPBool _ -> error "Division by zero"
                            v         -> v
              Modulo   -> undefined
-             And      -> undefined
-             Or       -> undefined
+             And      -> boolAnd av bv
+             Or       -> boolOr av bv
              Greater  -> undefined
              Less     -> undefined
-             Equals   -> undefined
-             StrictEquals -> undefined
+             Equals   -> boolEquals av bv
+             StrictEquals -> boolStrictEquals av bv
 
 evalExpr a@(Literal _) = return a
 evalExpr (Assign (PHPVariable varName) expr) = do

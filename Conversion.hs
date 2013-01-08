@@ -78,3 +78,20 @@ makeCompatible (a@(PHPFloat _), b) = (a, castToFloat b)
 makeCompatible (a, b@(PHPFloat _)) = (castToFloat a, b)
 makeCompatible (a@(PHPInt _), b) = (a, castToInt b)
 makeCompatible (a, b@(PHPInt _)) = (castToInt a, b)
+
+boolAnd :: PHPValue -> PHPValue -> PHPValue
+boolAnd a b = PHPBool $ (isTruthy a) && (isTruthy b)
+
+boolOr :: PHPValue -> PHPValue -> PHPValue
+boolOr a b = PHPBool $ (isTruthy a) || (isTruthy b)
+
+boolEquals :: PHPValue -> PHPValue -> PHPValue
+boolEquals a b = PHPBool $ (isTruthy a) == (isTruthy b)
+
+boolStrictEquals :: PHPValue -> PHPValue -> PHPValue
+boolStrictEquals (PHPFloat a) (PHPFloat b) = PHPBool (a == b)
+boolStrictEquals (PHPInt a) (PHPInt b) = PHPBool (a == b)
+boolStrictEquals (PHPString a) (PHPString b) = PHPBool (a == b)
+boolStrictEquals (PHPBool a) (PHPBool b) = PHPBool (a == b)
+boolStrictEquals PHPNull PHPNull = PHPBool True
+boolStrictEquals _ _ = PHPBool False
