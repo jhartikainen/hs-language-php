@@ -76,7 +76,7 @@ whiteSpace = Token.whiteSpace lexer
 whileParser :: Parser [ParseResult]
 whileParser = many (parsePHPCode <|> parsePlainText)
 
-phpEof = do
+phpEof = try $ do
     optional $ char '\n'
     eof
 

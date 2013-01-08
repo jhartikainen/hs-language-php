@@ -53,6 +53,7 @@ testSuite = testGroup "Parser"
                     show $ [PHPCode $ Seq [While (BinaryExpr Less (Variable (PHPVariable "i")) (Literal (PHPInt 5))) (Seq
                                     [ Expression (Assign (PHPVariable "i") (BinaryExpr Add (Variable (PHPVariable "i")) (Literal (PHPInt 1))))])]]))
             , testCase "Plaintext: space after PHP stmt" (testFile "tests/plaintext_space_after_php.php" (show $ [PHPCode $ Seq [Expression $ Literal $ PHPInt 1], PlainText " foo"]))
+            , testCase "Plaintext: multiline file" (testFile "tests/plaintext_multiline_file.php" (show $ [PlainText "foo\nbar\nbaz"]))
             ]
 
 testFile :: FilePath -> String -> IO ()
