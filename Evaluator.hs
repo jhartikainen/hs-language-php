@@ -150,7 +150,7 @@ evalExpr (BinaryExpr op a b) = do
              Divide   -> case phpDivide av bv of
                            PHPBool _ -> error "Division by zero"
                            v         -> v
-             Modulo   -> undefined
+             Modulo   -> phpModulo av bv
              And      -> boolAnd av bv
              Or       -> boolOr av bv
              Greater  -> boolGreater av bv

@@ -73,6 +73,12 @@ phpDivide a b = uncurry div $ makeCompatible (a, b)
                                                        else PHPFloat f
                                     | otherwise = PHPBool False
 
+phpModulo :: PHPValue -> PHPValue -> PHPValue
+phpModulo a b = uncurry m $ makeCompatible (a, b)
+    where m (PHPInt a) (PHPInt b) | b /= 0    = PHPInt (a `mod` b)
+                                  | otherwise = PHPBool False
+          m a@(PHPFloat _) b@(PHPFloat _) = phpModulo (castToInt a) (castToInt b)
+
 makeCompatible :: (PHPValue, PHPValue) -> (PHPValue, PHPValue)
 makeCompatible (a@(PHPFloat _), b) = (a, castToFloat b)
 makeCompatible (a, b@(PHPFloat _)) = (castToFloat a, b)
