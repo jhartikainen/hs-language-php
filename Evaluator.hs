@@ -153,8 +153,8 @@ evalExpr (BinaryExpr op a b) = do
              Modulo   -> undefined
              And      -> boolAnd av bv
              Or       -> boolOr av bv
-             Greater  -> undefined
-             Less     -> undefined
+             Greater  -> boolGreater av bv
+             Less     -> boolLess av bv
              Equals   -> boolEquals av bv
              StrictEquals -> boolStrictEquals av bv
 

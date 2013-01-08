@@ -95,3 +95,13 @@ boolStrictEquals (PHPString a) (PHPString b) = PHPBool (a == b)
 boolStrictEquals (PHPBool a) (PHPBool b) = PHPBool (a == b)
 boolStrictEquals PHPNull PHPNull = PHPBool True
 boolStrictEquals _ _ = PHPBool False
+
+boolGreater :: PHPValue -> PHPValue -> PHPValue
+boolGreater a b = uncurry cmp $ makeCompatible (a, b)
+    where cmp (PHPFloat a) (PHPFloat b) = PHPBool (a > b)
+          cmp (PHPInt a) (PHPInt b) = PHPBool (a > b)
+
+boolLess :: PHPValue -> PHPValue -> PHPValue
+boolLess a b = uncurry cmp $ makeCompatible (a, b)
+    where cmp (PHPFloat a) (PHPFloat b) = PHPBool (a < b)
+          cmp (PHPInt a) (PHPInt b) = PHPBool (a < b)
