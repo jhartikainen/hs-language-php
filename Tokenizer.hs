@@ -52,7 +52,7 @@ langDef = emptyDef { Token.commentStart = "/*"
                    , Token.commentEnd = "*/"
                    , Token.commentLine = "//"
                    , Token.identStart = letter
-                   , Token.identLetter = alphaNum
+                   , Token.identLetter = alphaNum <|> char '_'
                    , Token.reservedNames = [ "if", "else", "elseif", "while", "break", "do", "for", "continue"
                                            , "true", "false", "null", "and", "or", "class", "function", "return"
                                            , "<?php", "?>"
@@ -62,10 +62,14 @@ langDef = emptyDef { Token.commentStart = "/*"
 
 lexer = Token.makeTokenParser langDef
 
+phpString = Token.lexeme lexer $ (between (string "\"") (string "\"") (many $ stringLetter '"')) <|> (between (string "'") (string "'") (many $ stringLetter '\''))
+    where
+        stringLetter q = satisfy (\c -> (c /= q))
+
 identifier = Token.identifier lexer
 reserved = Token.reserved lexer
 float = Token.float lexer
-stringTok = Token.stringLiteral lexer
+stringTok = phpString
 reservedOp = Token.reservedOp lexer
 parens = Token.parens lexer
 braces = Token.braces lexer
