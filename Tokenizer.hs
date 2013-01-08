@@ -37,11 +37,14 @@ data FunctionArgumentDef = FunctionArgumentDef { argName :: String
                                                }
                                                deriving (Show)
 
+data ParseResult = PlainText String | PHPCode PHPStmt deriving (Show)
+
 data PHPStmt = Seq [PHPStmt]
              | Expression PHPExpr
              | If PHPExpr PHPStmt (Maybe ElseExpr)
              | Function String [FunctionArgumentDef] PHPStmt
              | Return PHPExpr
+             | While PHPExpr PHPStmt
              deriving (Show)
 
 
@@ -52,6 +55,7 @@ langDef = emptyDef { Token.commentStart = "/*"
                    , Token.identLetter = alphaNum
                    , Token.reservedNames = [ "if", "else", "elseif", "while", "break", "do", "for", "continue"
                                            , "true", "false", "null", "and", "or", "class", "function", "return"
+                                           , "<?php", "?>"
                                            ]
                    , Token.reservedOpNames = [ "=", "==", "===", "->", ".", "+", "-", "*", "/", "%", "<", ">", "and", "or", "||", "&&", "!" ]
                    }
@@ -69,13 +73,21 @@ integer = Token.integer lexer
 semi = Token.semi lexer
 whiteSpace = Token.whiteSpace lexer
 
-whileParser :: Parser PHPStmt
-whileParser = do
-    string "<?php"
-    whiteSpace
+whileParser :: Parser [ParseResult]
+whileParser = many (parsePHPCode <|> parsePlainText)
+
+parsePlainText :: Parser ParseResult
+parsePlainText = liftM PlainText $ do
+    c <- anyChar
+    har <- manyTill anyChar ((lookAhead $ reserved "<?php") <|> eof)
+    return (c : har)
+
+parsePHPCode :: Parser ParseResult
+parsePHPCode = do
+    reserved "<?php"
     seq <- sequenceOfStmt
-    eof
-    return seq
+    (optional $ string "?>") <|> eof
+    return $ PHPCode seq
 
 sequenceOfStmt = do
     list <- many1 oneStatement
@@ -85,7 +97,7 @@ statementZeroOrMore = liftM Seq $ many oneStatement
 
 -- Parse a single PHP statement
 oneStatement :: Parser PHPStmt
-oneStatement = ifStmt <|> functionStmt <|> returnStmt <|> stmtExpr
+oneStatement = ifStmt <|> functionStmt <|> returnStmt <|> whileStmt <|> stmtExpr
     -- Special case for an expression that's a statement
     -- Expressions can be used without a semicolon in the end in ifs or whatever, 
     -- but a valid statement expression needs a semi in the end
@@ -117,6 +129,13 @@ functionStmt = do
                 phpValue
 
             return $ FunctionArgumentDef name defValue
+
+whileStmt :: Parser PHPStmt
+whileStmt = do
+    reserved "while"
+    cond <- parens phpExpression
+    stmt <- (braces statementZeroOrMore) <|> oneStatement
+    return $ While cond stmt
 
 ifStmt :: Parser PHPStmt
 ifStmt = do
@@ -198,7 +217,7 @@ phpValue = (reserved "true" >> return (PHPBool True))
         <|> (Token.naturalOrFloat lexer >>= return . either PHPInt PHPFloat)
         <|> (stringTok >>= return . PHPString)
 
-parseString :: String -> PHPStmt
+parseString :: String -> [ParseResult]
 parseString str = case parse whileParser "" str of
                     Left e -> error $ show e
                     Right r -> r

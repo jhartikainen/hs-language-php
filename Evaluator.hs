@@ -224,5 +224,16 @@ evalElseExpr :: ElseExpr -> PHPEval (Maybe PHPValue)
 evalElseExpr (Else stmt) = evalStmt stmt
 evalElseExpr (ElseIf condExpr body mElse) = evalStmt $ If condExpr body mElse
 
+evalParseResult :: ParseResult -> PHPEval String
+evalParseResult (PlainText t) = return t
+evalParseResult (PHPCode stmt) = do
+        res <- evalStmt stmt
+        case res of
+          Nothing -> return ""
+          Just v  -> return $ stringFromPHPValue $ castToString v
+
+evalParseResults :: [ParseResult] -> PHPEval String
+evalParseResults rs = liftM concat $ mapM evalParseResult rs
+
 runPHPEval :: EvalConfig -> (PHPEval a) -> IO (Either PHPError a)
 runPHPEval config eval = runErrorT $ runReaderT eval config

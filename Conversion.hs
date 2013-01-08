@@ -46,13 +46,6 @@ castToString (PHPFloat a) = PHPString (show a)
 castToString a@(PHPBool _) = castToString $ castToInt a
 castToString PHPNull = PHPString ""
 
-stringToNumeric :: PHPValue -> PHPValue
-stringToNumeric (PHPString a) = if isFloat a then PHPFloat $ read a else PHPInt $ fromMaybe 0 $ readMaybe a
-    where
-        isFloat a = elem 'E' a || elem 'e' a || elem '.' a
-
-stringToNumeric _ = error "Trying to convert non-string"
-
 phpSum :: PHPValue -> PHPValue -> PHPValue
 phpSum (PHPFloat a) (PHPFloat b) = PHPFloat (a + b)
 phpSum (PHPInt a) (PHPInt b) = PHPInt (a + b)
