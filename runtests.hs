@@ -25,6 +25,8 @@ testSuite = testGroup "Parser"
             , testCase "Assign null" (testFile "tests/assign_null.php" (show $ [PHPCode $ Seq [Expression (Assign (PHPVariable "foo") (Literal PHPNull))]]))
             , testCase "Assign float" (testFile "tests/assign_float.php" (show $ [PHPCode $ Seq [Expression (Assign (PHPVariable "foo") (Literal (PHPFloat 10.5)))]]))
             , testCase "Assign var" (testFile "tests/assign_var.php" (show $ [PHPCode $ Seq [Expression (Assign (PHPVariable "foo") (Variable (PHPVariable "bar")))]]))
+            , testCase "String: single quote escape" (testFile "tests/string_single_quote_escape.php" (show $ [PHPCode $ Seq [Expression (Literal $ PHPString "foo'bar")]]))
+            , testCase "String: double quote escape" (testFile "tests/string_double_quote_escape.php" (show $ [PHPCode $ Seq [Expression (Literal $ PHPString "foo\"bar")]]))
             , testCase "If, plain" (testFile "tests/if_plain.php" (show $ [PHPCode $ Seq [If (Literal (PHPBool True)) (Seq []) Nothing]]))
             , testCase "If, else" (testFile "tests/if_else.php" (show $ [PHPCode $ Seq [If (Literal (PHPBool True)) (Seq []) (Just (Else (Seq [])))]]))
             , testCase "If, elseif, else" (testFile "tests/if_elseif_else.php" (
