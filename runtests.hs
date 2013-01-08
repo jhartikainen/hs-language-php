@@ -52,7 +52,7 @@ testSuite = testGroup "Parser"
             , testCase "While: cond and body" (testFile "tests/while_cond_and_body.php" (
                     show $ [PHPCode $ Seq [While (BinaryExpr Less (Variable (PHPVariable "i")) (Literal (PHPInt 5))) (Seq
                                     [ Expression (Assign (PHPVariable "i") (BinaryExpr Add (Variable (PHPVariable "i")) (Literal (PHPInt 1))))])]]))
-            , testCase "Plaintext: space after PHP stmt" (testFile "tests/plaintext_space_after_php.php" (show $ [PHPCode $ Seq [Expression $ Literal $ PHPInt 1], PlainText " foo\n"]))
+            , testCase "Plaintext: space after PHP stmt" (testFile "tests/plaintext_space_after_php.php" (show $ [PHPCode $ Seq [Expression $ Literal $ PHPInt 1], PlainText " foo"]))
             ]
 
 testFile :: FilePath -> String -> IO ()

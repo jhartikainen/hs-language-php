@@ -76,17 +76,21 @@ whiteSpace = Token.whiteSpace lexer
 whileParser :: Parser [ParseResult]
 whileParser = many (parsePHPCode <|> parsePlainText)
 
+phpEof = do
+    optional $ char '\n'
+    eof
+
 parsePlainText :: Parser ParseResult
 parsePlainText = liftM PlainText $ do
     c <- anyChar
-    har <- manyTill anyChar ((lookAhead $ reserved "<?php") <|> eof)
+    har <- manyTill anyChar ((lookAhead $ reserved "<?php") <|> phpEof)
     return (c : har)
 
 parsePHPCode :: Parser ParseResult
 parsePHPCode = do
     reserved "<?php"
     seq <- sequenceOfStmt
-    (optional $ string "?>") <|> eof
+    (optional $ string "?>") <|> phpEof
     return $ PHPCode seq
 
 sequenceOfStmt = do
