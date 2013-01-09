@@ -3,7 +3,7 @@ module VariableFunctions where
 import Tokenizer
 import Evaluator
 
-moduleFunctions = [("var_dump", phpVarDump)]
+functions = [("var_dump", phpVarDump)]
 
 phpVarDump :: PHPFunctionType
 phpVarDump args = (output $ unlines $ map dump args) >> return PHPNull

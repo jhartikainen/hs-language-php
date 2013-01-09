@@ -38,6 +38,7 @@ data EvalConfig = EvalConfig { variableEnv :: VariableEnv
                              , functionEnv :: FunctionEnv
                              , globalRef :: Maybe VariableEnv
                              , outputHandler :: String -> IO ()
+                             , iniSettings :: [(String, String)]
                              }
 
 type ErrMonad = ErrorT PHPError IO
@@ -51,12 +52,17 @@ defaultConfig :: IO EvalConfig
 defaultConfig = do
     v <- emptyEnv
     f <- emptyEnv
-    return $ EvalConfig v f Nothing putStr
+    return $ EvalConfig v f Nothing putStr []
 
 output :: String -> PHPEval ()
 output s = do
     fn <- liftM outputHandler ask
     liftIO $ fn s
+
+lookupIniSetting :: String -> PHPEval (Maybe String)
+lookupIniSetting v = do
+    settings <- liftM iniSettings ask
+    return $ lookup v settings
 
 -- returns reference to local var environment
 -- could be global, if variable is at root level execution
