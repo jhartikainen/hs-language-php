@@ -57,6 +57,7 @@ testSuite = testGroup "Parser"
             , testCase "Plaintext: space after PHP stmt" (testFile "tests/plaintext_space_after_php.php" (show $ [PHPCode $ Seq [Expression $ Literal $ PHPInt 1], PlainText " foo"]))
             , testCase "Plaintext: multiline file" (testFile "tests/plaintext_multiline_file.php" (show $ [PlainText "foo\nbar\nbaz"]))
             , testCase "Newline handling: ignore newline before EOF after ?>" (testFile "tests/newline_ignore_after_close.php" (show $ [PHPCode $ Seq [Expression $ Literal $ PHPInt 1]]))
+            , testCase "Echo statement" (testFile "tests/echo_statement.php" (show $ [PHPCode $ Seq [Echo [Literal $ PHPInt 1, Literal $ PHPInt 2]]]))
             ]
 
 testFile :: FilePath -> String -> IO ()

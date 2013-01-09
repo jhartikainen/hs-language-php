@@ -45,6 +45,7 @@ data PHPStmt = Seq [PHPStmt]
              | Function String [FunctionArgumentDef] PHPStmt
              | Return PHPExpr
              | While PHPExpr PHPStmt
+             | Echo [PHPExpr]
              deriving (Show)
 
 
@@ -55,7 +56,7 @@ langDef = emptyDef { Token.commentStart = "/*"
                    , Token.identLetter = alphaNum <|> char '_'
                    , Token.reservedNames = [ "if", "else", "elseif", "while", "break", "do", "for", "continue"
                                            , "true", "false", "null", "and", "or", "class", "function", "return"
-                                           , "<?php", "?>"
+                                           , "<?php", "?>", "echo", "print"
                                            ]
                    , Token.reservedOpNames = [ "=", "==", "===", "->", ".", "+", "-", "*", "/", "%", "<", ">", "and", "or", "||", "&&", "!" ]
                    }
@@ -105,7 +106,7 @@ statementZeroOrMore = liftM Seq $ many oneStatement
 
 -- Parse a single PHP statement
 oneStatement :: Parser PHPStmt
-oneStatement = ifStmt <|> functionStmt <|> returnStmt <|> whileStmt <|> stmtExpr
+oneStatement = ifStmt <|> functionStmt <|> returnStmt <|> whileStmt <|> echoStmt <|> stmtExpr
     -- Special case for an expression that's a statement
     -- Expressions can be used without a semicolon in the end in ifs or whatever, 
     -- but a valid statement expression needs a semi in the end
@@ -113,6 +114,15 @@ oneStatement = ifStmt <|> functionStmt <|> returnStmt <|> whileStmt <|> stmtExpr
               expr <- phpExpression
               semi
               return $ Expression expr
+
+echoStmt :: Parser PHPStmt
+echoStmt = do
+        reserved "echo" <|> reserved "print"
+        -- echo/print take one arg only if parens are used, otherwise 1 or more
+        args <- (liftM (:[]) $ parens phpExpression) <|> argList
+        semi
+        return $ Echo args
+    where argList = sepBy phpExpression (Token.symbol lexer ",")
 
 returnStmt :: Parser PHPStmt
 returnStmt = do
@@ -215,7 +225,7 @@ functionCallExpr = try varCall <|> nameCall
             name <- identifier
             args <- parens argList
             return $ Call (FunctionCall name) args
-        argList = sepBy phpExpression (optional (Token.symbol lexer ","))
+        argList = sepBy phpExpression (Token.symbol lexer ",")
 
 
 phpValue :: Parser PHPValue

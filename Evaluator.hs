@@ -241,6 +241,7 @@ evalStmt (Seq xs) = foldSeq xs
 evalStmt (Expression expr) = evalExpr expr >> return Nothing
 evalStmt (Function name argDefs body) = defineFunction name argDefs body >> return Nothing
 evalStmt (Return expr) = liftM (Just . exprVal) (evalExpr expr)
+evalStmt (Echo exs) = mapM evalExpr exs >>= phpEcho . map exprVal >> return Nothing
 
 evalStmt (If condExpr body mElse) = do
     condResult <- liftM exprVal $ evalExpr condExpr
@@ -265,3 +266,7 @@ evalParseResults rs = liftM concat $ mapM evalParseResult rs
 
 runPHPEval :: EvalConfig -> (PHPEval a) -> IO (Either PHPError a)
 runPHPEval config eval = runErrorT $ runReaderT eval config
+
+phpEcho :: PHPFunctionType
+phpEcho xs = mapM (output . stringFromPHPValue . castToString) xs >> return PHPNull
+
