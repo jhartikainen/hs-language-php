@@ -7,6 +7,7 @@ import Data.Maybe
 import Control.Monad.Error
 import Control.Monad.Reader
 import Control.Monad.Trans.Class
+import qualified Data.Traversable as Traversable
 
 data PHPError = UndefinedVariable String
               | NotEnoughArguments String
@@ -34,11 +35,14 @@ type VariableEnv = IORef VariableList
 type FunctionList = [(String, PHPFunctionType)]
 type FunctionEnv = IORef FunctionList
 
+type IniSetting = (String, IORef String)
+type IniSettings = IORef [IniSetting]
+
 data EvalConfig = EvalConfig { variableEnv :: VariableEnv
                              , functionEnv :: FunctionEnv
                              , globalRef :: Maybe VariableEnv
                              , outputHandler :: String -> IO ()
-                             , iniSettings :: [(String, String)]
+                             , iniSettings :: IniSettings
                              }
 
 type ErrMonad = ErrorT PHPError IO
@@ -52,7 +56,8 @@ defaultConfig :: IO EvalConfig
 defaultConfig = do
     v <- emptyEnv
     f <- emptyEnv
-    return $ EvalConfig v f Nothing putStr []
+    i <- emptyEnv
+    return $ EvalConfig v f Nothing putStr i
 
 output :: String -> PHPEval ()
 output s = do
@@ -61,8 +66,21 @@ output s = do
 
 lookupIniSetting :: String -> PHPEval (Maybe String)
 lookupIniSetting v = do
-    settings <- liftM iniSettings ask
-    return $ lookup v settings
+    settings <- liftM iniSettings ask >>= liftIO . readIORef
+    r <- liftIO $ Traversable.sequence $ fmap readIORef $ lookup v settings
+    return r
+
+setIniSetting :: String -> String -> PHPEval ()
+setIniSetting s v = do
+    allRef <- liftM iniSettings ask
+    settings <- liftIO $ readIORef allRef
+
+    case lookup s settings of
+      Nothing -> liftIO $ do
+          newRef <- newIORef v
+          writeIORef allRef ((s, newRef) : settings)
+      Just oldRef -> do
+          liftIO $ writeIORef oldRef v
 
 -- returns reference to local var environment
 -- could be global, if variable is at root level execution

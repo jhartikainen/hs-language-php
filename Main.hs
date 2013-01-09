@@ -21,7 +21,8 @@ main =
               ast <- liftM parseString $ readFile $ head args
               builtins <- newIORef $ VariableFunctions.functions ++ PhpInfoFunctions.functions
               config <- defaultConfig
-              result <- runPHPEval (config { functionEnv = builtins, iniSettings = defaultSettings }) $ evalParseResults ast
+              settings <- defaultSettings
+              result <- runPHPEval (config { functionEnv = builtins, iniSettings = settings }) $ evalParseResults ast
               case result of
                 Left err -> print err
                 Right val -> return ()
