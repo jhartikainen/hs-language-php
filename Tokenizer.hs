@@ -228,4 +228,6 @@ phpValue = (reserved "true" >> return (PHPBool True))
 parseString :: String -> [ParseResult]
 parseString str = case parse whileParser "" str of
                     Left e -> error $ show e
-                    Right r -> r
+                    Right r -> case last r of
+                                 PlainText "\n" -> init r
+                                 _              -> r
