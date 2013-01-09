@@ -37,8 +37,7 @@ type FunctionEnv = IORef FunctionList
 data EvalConfig = EvalConfig { variableEnv :: VariableEnv
                              , functionEnv :: FunctionEnv
                              , globalRef :: Maybe VariableEnv
-                             , varTypeChecks :: Bool
-                             , disableIO :: Bool
+                             , outputHandler :: String -> IO ()
                              }
 
 type ErrMonad = ErrorT PHPError IO
@@ -52,7 +51,12 @@ defaultConfig :: IO EvalConfig
 defaultConfig = do
     v <- emptyEnv
     f <- emptyEnv
-    return $ EvalConfig v f Nothing False False
+    return $ EvalConfig v f Nothing putStr
+
+output :: String -> PHPEval ()
+output s = do
+    fn <- liftM outputHandler ask
+    liftIO $ fn s
 
 -- returns reference to local var environment
 -- could be global, if variable is at root level execution
@@ -225,7 +229,7 @@ evalElseExpr (Else stmt) = evalStmt stmt
 evalElseExpr (ElseIf condExpr body mElse) = evalStmt $ If condExpr body mElse
 
 evalParseResult :: ParseResult -> PHPEval String
-evalParseResult (PlainText t) = return t
+evalParseResult (PlainText t) = output t >> return t
 evalParseResult (PHPCode stmt) = do
         res <- evalStmt stmt
         case res of
