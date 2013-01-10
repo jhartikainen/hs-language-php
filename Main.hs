@@ -9,6 +9,7 @@ import Data.IORef
 import System.Environment
 import qualified VariableFunctions
 import qualified PhpInfoFunctions
+import qualified StringFunctions
 import IniSettings
 
 main :: IO ()
@@ -19,7 +20,7 @@ main =
         if length args > 0 
           then do
               ast <- liftM parseString $ readFile $ head args
-              builtins <- newIORef $ VariableFunctions.functions ++ PhpInfoFunctions.functions
+              builtins <- newIORef $ VariableFunctions.functions ++ PhpInfoFunctions.functions ++ StringFunctions.functions
               config <- defaultConfig
               settings <- defaultSettings
               result <- runPHPEval (config { functionEnv = builtins, iniSettings = settings }) $ evalParseResults ast
