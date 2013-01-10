@@ -217,6 +217,30 @@ evalExpr (Call (FunctionCall n) args) = do
     where
         localEnv locals globals env = env { variableEnv = locals, globalRef = Just globals }
 
+evalExpr (UnaryExpr utype uop var) = case utype of
+                                       Before -> runOp uop var >> evalExpr (Variable var)
+                                       After -> do
+                                           val <- liftM exprVal $ evalExpr (Variable var)
+                                           runOp uop var
+                                           return $ Literal val
+    where
+          runOp op var = do
+              vn <- varName var
+              getVar vn >>= runOp' op >>= setVar vn
+          runOp' _ b@(PHPBool _) = return b
+          runOp' Increment PHPNull = return $ PHPInt 1
+          runOp' Decrement PHPNull = return PHPNull
+          runOp' _ (PHPString _) = error "undefined behavior for string unary op"
+          runOp' op (PHPFloat f) = return $ PHPFloat (numOp op f)
+          runOp' op (PHPInt i) = return $ PHPInt (numOp op i)
+          numOp op num = case op of
+                           Increment -> num + 1
+                           Decrement -> num - 1
+
+          varName (PHPVariable n) = return n
+          varName (PHPVariableVariable vv) = liftM stringFromPHPValue $ getVar vv
+
+
 exprVal :: PHPExpr -> PHPValue
 exprVal (Literal v) = v
 exprVal _ = error "Value that are not literals must be evaluated first"

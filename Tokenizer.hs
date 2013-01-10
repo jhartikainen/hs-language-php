@@ -23,8 +23,17 @@ data PHPExpr = Literal PHPValue
              | Neg PHPExpr
              | Not PHPExpr
              | BinaryExpr BinOp PHPExpr PHPExpr
+             | UnaryExpr UnaryType UnaryOp PHPVariable
              | Call FunctionCall [PHPExpr]
              deriving (Show)
+
+data UnaryType = Before | After deriving (Show)
+data UnaryOp = Increment | Decrement deriving (Show)
+
+mkUnaryOp :: String -> UnaryOp
+mkUnaryOp "++" = Increment
+mkUnaryOp "--" = Decrement
+mkUnaryOp _ = error "Invalid unary op"
 
 data BinOp = Add | Subtract | Multiply | Divide | Modulo | And | Or | Greater | Less | Equals | StrictEquals deriving (Show)
 
@@ -58,7 +67,9 @@ langDef = emptyDef { Token.commentStart = "/*"
                                            , "true", "false", "null", "and", "or", "class", "function", "return"
                                            , "<?php", "?>", "echo", "print"
                                            ]
-                   , Token.reservedOpNames = [ "=", "==", "===", "->", ".", "+", "-", "*", "/", "%", "<", ">", "and", "or", "||", "&&", "!" ]
+                   , Token.reservedOpNames = [ "=", "==", "===", "->", ".", "+", "-", "*", "/", "%", "<", ">"
+                                             , "and", "or", "||", "&&", "!", "++", "--" 
+                                             ]
                    }
 
 lexer = Token.makeTokenParser langDef
@@ -71,7 +82,7 @@ identifier = Token.identifier lexer
 reserved = Token.reserved lexer
 float = Token.float lexer
 stringTok = phpString
-reservedOp = Token.reservedOp lexer
+reservedOp = (Token.lexeme lexer) . string
 parens = Token.parens lexer
 braces = Token.braces lexer
 integer = Token.integer lexer
@@ -179,13 +190,13 @@ elseIfStmt = do
 
 assignExpr :: Parser PHPExpr
 assignExpr = do
-    var <- variableExpr
+    var <- plainVariableExpr
     reservedOp "="
     expr <- phpExpression
     return $ Assign var expr
 
-variableExpr :: Parser PHPVariable
-variableExpr = try varVarExpr <|> varExpr
+plainVariableExpr :: Parser PHPVariable
+plainVariableExpr = try varVarExpr <|> varExpr
     where
         varExpr = char '$' >> fmap PHPVariable identifier
         varVarExpr = char '$' >> char '$' >> fmap PHPVariableVariable identifier
@@ -194,8 +205,7 @@ variableExpr = try varVarExpr <|> varExpr
 phpExpression :: Parser PHPExpr
 phpExpression = buildExpressionParser phpOperators phpTerm
 
-phpOperators = [ [Prefix (reservedOp "-" >> return (Neg))]
-               , [Infix (reservedOp "*" >> return (BinaryExpr Multiply)) AssocLeft]
+phpOperators = [ [Infix (reservedOp "*" >> return (BinaryExpr Multiply)) AssocLeft]
                , [Infix (reservedOp "/" >> return (BinaryExpr Divide)) AssocLeft]
                , [Infix (reservedOp "+" >> return (BinaryExpr Add)) AssocLeft]
                , [Infix (reservedOp "-" >> return (BinaryExpr Subtract)) AssocLeft]
@@ -211,14 +221,28 @@ phpOperators = [ [Prefix (reservedOp "-" >> return (Neg))]
 phpTerm = parens phpExpression
        <|> try functionCallExpr
        <|> try assignExpr
-       <|> liftM Variable variableExpr
+       <|> variableExpr
        <|> liftM Literal phpValue
+
+variableExpr :: Parser PHPExpr
+variableExpr = do
+        prefixOp <- unaryOp
+        var <- plainVariableExpr
+        case prefixOp of
+          Just op -> return $ UnaryExpr Before (mkUnaryOp op) var
+          Nothing -> do
+              postOp <- unaryOp
+              case postOp of
+                Nothing -> return $ Variable var
+                Just op -> return $ UnaryExpr After (mkUnaryOp op) var
+    where
+        unaryOp = optionMaybe (try (reservedOp "++") <|> try (reservedOp "--"))
 
 functionCallExpr :: Parser PHPExpr
 functionCallExpr = try varCall <|> nameCall
     where
         varCall = do
-            var <- variableExpr
+            var <- plainVariableExpr
             args <- parens argList
             return $ Call (FunctionCallVar var) args
         nameCall = do
