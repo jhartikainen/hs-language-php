@@ -4,10 +4,12 @@ import Tokenizer
 import Conversion
 import Data.IORef
 import Data.Maybe
+import Data.List
 import Control.Monad.Error
 import Control.Monad.Reader
 import Control.Monad.Trans.Class
 import qualified Data.Traversable as Traversable
+import Debug.Trace
 
 data PHPError = UndefinedVariable String
               | NotEnoughArguments String
@@ -95,6 +97,8 @@ globalVarsRef = do
       Nothing  -> varEnvRef
       Just ref -> return ref
 
+isInFunctionContext :: PHPEval Bool
+isInFunctionContext = liftM globalRef ask >>= return . isJust
 
 globalFunctionsRef :: PHPEval FunctionEnv
 globalFunctionsRef = liftM functionEnv ask
@@ -237,8 +241,10 @@ evalExpr (UnaryExpr utype uop var) = case utype of
                            Increment -> num + 1
                            Decrement -> num - 1
 
-          varName (PHPVariable n) = return n
-          varName (PHPVariableVariable vv) = liftM stringFromPHPValue $ getVar vv
+
+varName :: PHPVariable -> PHPEval String
+varName (PHPVariable n) = return n
+varName (PHPVariableVariable vv) = liftM stringFromPHPValue $ getVar vv
 
 
 exprVal :: PHPExpr -> PHPValue
@@ -266,6 +272,21 @@ evalStmt (Expression expr) = evalExpr expr >> return Nothing
 evalStmt (Function name argDefs body) = defineFunction name argDefs body >> return Nothing
 evalStmt (Return expr) = liftM (Just . exprVal) (evalExpr expr)
 evalStmt (Echo exs) = mapM evalExpr exs >>= phpEcho . map exprVal >> return Nothing
+evalStmt (Global var) = do
+    hasCtx <- isInFunctionContext
+    if hasCtx == False
+      then return Nothing
+      else do
+          name <- varName var
+          globals <- globalVarsRef >>= liftIO . readIORef
+          locals <- varDefs
+          localRef <- varEnvRef
+          maybe (return Nothing)
+            (\ref -> do
+                  liftIO $ writeIORef localRef $ (name, ref) : fromMaybe locals (find ((== name) . fst) locals >>= return . (flip delete) locals)
+                  return Nothing)
+            (lookup name globals)
+
 
 evalStmt (If condExpr body mElse) = do
     condResult <- liftM exprVal $ evalExpr condExpr

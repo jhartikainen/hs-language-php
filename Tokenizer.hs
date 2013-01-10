@@ -55,6 +55,7 @@ data PHPStmt = Seq [PHPStmt]
              | Return PHPExpr
              | While PHPExpr PHPStmt
              | Echo [PHPExpr]
+             | Global PHPVariable
              deriving (Show)
 
 
@@ -115,23 +116,34 @@ sequenceOfStmt = do
 
 statementZeroOrMore = liftM Seq $ many oneStatement
 
+-- Match a valid PHP end of statement.
+-- Must have ; after expression, unless closing tag
+-- ?> comes immediately after
+phpEnd = semi <|> try (string "?>")
+
 -- Parse a single PHP statement
 oneStatement :: Parser PHPStmt
-oneStatement = ifStmt <|> functionStmt <|> returnStmt <|> whileStmt <|> echoStmt <|> stmtExpr
+oneStatement = ifStmt <|> functionStmt <|> returnStmt <|> whileStmt <|> echoStmt <|> globalStmt <|> stmtExpr
     -- Special case for an expression that's a statement
     -- Expressions can be used without a semicolon in the end in ifs or whatever, 
     -- but a valid statement expression needs a semi in the end
     where stmtExpr = do
               expr <- phpExpression
-              semi
+              phpEnd
               return $ Expression expr
+
+globalStmt :: Parser PHPStmt
+globalStmt = do
+    global <- reserved "global" >> liftM Global plainVariableExpr
+    semi
+    return global
 
 echoStmt :: Parser PHPStmt
 echoStmt = do
         reserved "echo" <|> reserved "print"
         -- echo/print take one arg only if parens are used, otherwise 1 or more
         args <- (liftM (:[]) $ parens phpExpression) <|> argList
-        semi
+        phpEnd
         return $ Echo args
     where argList = sepBy phpExpression (Token.symbol lexer ",")
 
@@ -139,7 +151,7 @@ returnStmt :: Parser PHPStmt
 returnStmt = do
     reserved "return" 
     ret <- liftM Return phpExpression
-    semi
+    phpEnd
     return $ ret
 
 functionStmt :: Parser PHPStmt
