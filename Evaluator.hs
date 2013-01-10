@@ -292,6 +292,18 @@ evalExpr (UnaryExpr utype uop var) = case utype of
                            Increment -> num + 1
                            Decrement -> num - 1
 
+evalExpr (Isset vars) = liftM Literal $ isset vars
+    where isset [] = return $ PHPBool True
+          isset ((PHPVariable x):xs) = do
+              defs <- varDefs
+              case lookup x defs of
+                 Nothing -> return $ PHPBool False
+                 Just ref -> do
+                     val <- liftIO $ readIORef ref
+                     case val of
+                       PHPNull -> return $ PHPBool False
+                       _ -> isset xs
+
 
 varName :: PHPVariable -> PHPEval String
 varName (PHPVariable n) = return n
@@ -378,4 +390,3 @@ runPHPEval config eval = runErrorT $ runReaderT eval config
 
 phpEcho :: PHPFunctionType
 phpEcho xs = mapM (output . stringFromPHPValue . castToString) xs >> return PHPNull
-

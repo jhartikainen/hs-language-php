@@ -25,6 +25,7 @@ data PHPExpr = Literal PHPValue
              | BinaryExpr BinOp PHPExpr PHPExpr
              | UnaryExpr UnaryType UnaryOp PHPVariable
              | Call FunctionCall [PHPExpr]
+             | Isset [PHPVariable]
              deriving (Show)
 
 data UnaryType = Before | After deriving (Show)
@@ -249,10 +250,17 @@ phpOperators = [ [Infix (reservedOp "*" >> return (BinaryExpr Multiply)) AssocLe
                ]
 
 phpTerm = parens phpExpression
+       <|> try issetExpr
        <|> try functionCallExpr
        <|> try assignExpr
        <|> variableExpr
        <|> liftM Literal phpValue
+
+issetExpr :: Parser PHPExpr
+issetExpr = do
+    reserved "isset"
+    vars <- parens $ sepBy1 plainVariableExpr (Token.symbol lexer ",")
+    return $ Isset vars
 
 variableExpr :: Parser PHPExpr
 variableExpr = do
