@@ -239,6 +239,7 @@ evalExpr (BinaryExpr op a b) = do
              Less     -> boolLess av bv
              Equals   -> boolEquals av bv
              StrictEquals -> boolStrictEquals av bv
+             Concat   -> PHPString $ (stringFromPHPValue $ castToString av) ++ (stringFromPHPValue $ castToString bv)
 
 evalExpr a@(Literal _) = return a
 evalExpr (Assign (PHPVariable varName) expr) = do

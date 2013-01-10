@@ -36,7 +36,7 @@ mkUnaryOp "++" = Increment
 mkUnaryOp "--" = Decrement
 mkUnaryOp _ = error "Invalid unary op"
 
-data BinOp = Add | Subtract | Multiply | Divide | Modulo | And | Or | Greater | Less | Equals | StrictEquals deriving (Show)
+data BinOp = Add | Subtract | Multiply | Divide | Modulo | And | Or | Greater | Less | Equals | StrictEquals | Concat deriving (Show)
 
 data ElseExpr = Else PHPStmt
               | ElseIf PHPExpr PHPStmt (Maybe ElseExpr)
@@ -240,6 +240,7 @@ phpOperators = [ [Infix (reservedOp "*" >> return (BinaryExpr Multiply)) AssocLe
                , [Infix (reservedOp "/" >> return (BinaryExpr Divide)) AssocLeft]
                , [Infix (reservedOp "+" >> return (BinaryExpr Add)) AssocLeft]
                , [Infix (reservedOp "-" >> return (BinaryExpr Subtract)) AssocLeft]
+               , [Infix (reservedOp "." >> return (BinaryExpr Concat)) AssocLeft]
                , [Infix (reservedOp "==" >> return (BinaryExpr Equals)) AssocLeft]
                , [Infix (reservedOp "===" >> return (BinaryExpr StrictEquals)) AssocLeft]
                , [Prefix (reservedOp "!" >> return (Not))]
