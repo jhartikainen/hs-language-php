@@ -48,6 +48,8 @@ data FunctionArgumentDef = FunctionArgumentDef { argName :: String
 
 data ParseResult = PlainText String | PHPCode PHPStmt deriving (Show)
 
+data StaticVar = StaticVar String (Maybe PHPValue) deriving (Show)
+
 data PHPStmt = Seq [PHPStmt]
              | Expression PHPExpr
              | If PHPExpr PHPStmt (Maybe ElseExpr)
@@ -56,6 +58,7 @@ data PHPStmt = Seq [PHPStmt]
              | While PHPExpr PHPStmt
              | Echo [PHPExpr]
              | Global PHPVariable
+             | Static [StaticVar]
              deriving (Show)
 
 
@@ -123,7 +126,7 @@ phpEnd = semi <|> try (string "?>")
 
 -- Parse a single PHP statement
 oneStatement :: Parser PHPStmt
-oneStatement = ifStmt <|> functionStmt <|> returnStmt <|> whileStmt <|> echoStmt <|> globalStmt <|> stmtExpr
+oneStatement = ifStmt <|> functionStmt <|> returnStmt <|> whileStmt <|> echoStmt <|> globalStmt <|> staticStmt <|> stmtExpr
     -- Special case for an expression that's a statement
     -- Expressions can be used without a semicolon in the end in ifs or whatever, 
     -- but a valid statement expression needs a semi in the end
@@ -131,6 +134,20 @@ oneStatement = ifStmt <|> functionStmt <|> returnStmt <|> whileStmt <|> echoStmt
               expr <- phpExpression
               phpEnd
               return $ Expression expr
+
+staticStmt :: Parser PHPStmt
+staticStmt = do
+        stmt <- reserved "static" >> (liftM Static $ sepBy staticArg (Token.symbol lexer ","))
+        semi
+        return stmt
+    where staticArg = do
+                char '$'
+                name <- identifier
+                defValue <- optionMaybe $ do
+                    Token.symbol lexer "="
+                    phpValue
+
+                return $ StaticVar name defValue
 
 globalStmt :: Parser PHPStmt
 globalStmt = do
@@ -208,11 +225,12 @@ assignExpr = do
     return $ Assign var expr
 
 plainVariableExpr :: Parser PHPVariable
-plainVariableExpr = try varVarExpr <|> varExpr
+plainVariableExpr = try varVarExpr <|> normalVariableExpr
     where
-        varExpr = char '$' >> fmap PHPVariable identifier
         varVarExpr = char '$' >> char '$' >> fmap PHPVariableVariable identifier
 
+normalVariableExpr :: Parser PHPVariable
+normalVariableExpr = char '$' >> fmap PHPVariable identifier
 
 phpExpression :: Parser PHPExpr
 phpExpression = buildExpressionParser phpOperators phpTerm

@@ -40,11 +40,16 @@ type FunctionEnv = IORef FunctionList
 type IniSetting = (String, IORef String)
 type IniSettings = IORef [IniSetting]
 
+type FunctionStatics = [(String, IORef PHPValue)]
+type FunctionStaticEnv = IORef [(String, IORef FunctionStatics)]
+
 data EvalConfig = EvalConfig { variableEnv :: VariableEnv
                              , functionEnv :: FunctionEnv
                              , globalRef :: Maybe VariableEnv
                              , outputHandler :: String -> IO ()
                              , iniSettings :: IniSettings
+                             , functionStaticEnv :: FunctionStaticEnv
+                             , currentFunction :: Maybe String
                              }
 
 type ErrMonad = ErrorT PHPError IO
@@ -59,22 +64,62 @@ defaultConfig = do
     v <- emptyEnv
     f <- emptyEnv
     i <- emptyEnv
-    return $ EvalConfig v f Nothing putStr i
+    s <- emptyEnv
+    return $ EvalConfig v f Nothing putStr i s Nothing
 
 output :: String -> PHPEval ()
 output s = do
     fn <- liftM outputHandler ask
     liftIO $ fn s
 
+getRef :: (EvalConfig -> IORef a) -> PHPEval (IORef a)
+getRef accessor = liftM accessor ask
+
+readRef :: (EvalConfig -> IORef a) -> PHPEval a
+readRef accessor = getRef accessor >>= liftIO . readIORef
+
+pushRef :: IORef [a] -> a -> PHPEval ()
+pushRef ref val = liftIO $ do
+    list <- readIORef ref
+    writeIORef ref (val : list)
+
+getCurrentFunction :: PHPEval (Maybe String)
+getCurrentFunction = liftM currentFunction ask
+
+getFunctionStatics :: String -> PHPEval FunctionStatics
+getFunctionStatics fn = do
+    statics <- readRef functionStaticEnv
+    case lookup fn statics of
+      Nothing -> return []
+      Just ref -> liftIO $ readIORef ref
+
+putFunctionStatics :: String -> StaticVar -> PHPEval (IORef PHPValue)
+putFunctionStatics func (StaticVar name mval) = do
+    mref <- readRef functionStaticEnv >>= return . (lookup name)
+    valref <- liftIO $ newIORef $ fromMaybe PHPNull mval
+    case mref of
+      Just fref -> do
+          statics <- liftIO $ readIORef fref
+          case lookup name statics of
+            Nothing -> do
+                pushRef fref (name, valref)
+                return valref
+            Just _ -> return valref
+      Nothing -> do
+          statics <- liftIO $ newIORef [(name, valref)]
+          fse <- getRef functionStaticEnv
+          pushRef fse (func, statics)
+          return valref
+
 lookupIniSetting :: String -> PHPEval (Maybe String)
 lookupIniSetting v = do
-    settings <- liftM iniSettings ask >>= liftIO . readIORef
+    settings <- readRef iniSettings
     r <- liftIO $ Traversable.sequence $ fmap readIORef $ lookup v settings
     return r
 
 setIniSetting :: String -> String -> PHPEval ()
 setIniSetting s v = do
-    allRef <- liftM iniSettings ask
+    allRef <- getRef iniSettings
     settings <- liftIO $ readIORef allRef
 
     case lookup s settings of
@@ -130,6 +175,19 @@ setVar var val = do
           writeIORef ref ((var, valueRef) : e)
           return val
 
+setVarRef :: String -> IORef PHPValue -> PHPEval ()
+setVarRef var valref = do
+    ref <- varEnvRef
+    e <- liftIO $ readIORef ref
+    defined <- isDefined var
+    if defined
+      then liftIO $ do
+          writeIORef ref $ (var, valref) : fromMaybe e (find ((== var) . fst) e >>= return . (flip delete) e)
+          return ()
+      else liftIO $ do
+          writeIORef ref ((var, valref) : e)
+          return ()
+
 lookupFunction :: String -> PHPEval (Maybe PHPFunctionType)
 lookupFunction name = do
     gref <- globalFunctionsRef
@@ -162,14 +220,6 @@ makeFunction name argDefs body =
             Nothing -> return PHPNull
             Just v -> return v
           )
-
-testFun :: PHPFunctionType
-testFun args = do
-    if (length args) /= 1
-      then throwError $ NotEnoughArguments "test"
-      else do
-          liftIO $ print (stringFromPHPValue $ head args) 
-          return $ PHPNull
 
 evalExpr :: PHPExpr -> PHPEval PHPExpr
 evalExpr (BinaryExpr op a b) = do
@@ -214,12 +264,13 @@ evalExpr (Call (FunctionCall n) args) = do
           Nothing -> throwError $ NotFound "Function not found" n
           Just fn -> do
               locals <- liftIO $ emptyEnv
+              getFunctionStatics n >>= mapM_ (pushRef locals)
               globalRef <- globalVarsRef
               args' <- mapM evalExpr args
               let vals = map exprVal args'
               local (localEnv locals globalRef) $ liftM Literal $ fn vals
     where
-        localEnv locals globals env = env { variableEnv = locals, globalRef = Just globals }
+        localEnv locals globals env = env { variableEnv = locals, globalRef = Just globals, currentFunction = Just n }
 
 evalExpr (UnaryExpr utype uop var) = case utype of
                                        Before -> runOp uop var >> evalExpr (Variable var)
@@ -272,6 +323,19 @@ evalStmt (Expression expr) = evalExpr expr >> return Nothing
 evalStmt (Function name argDefs body) = defineFunction name argDefs body >> return Nothing
 evalStmt (Return expr) = liftM (Just . exprVal) (evalExpr expr)
 evalStmt (Echo exs) = mapM evalExpr exs >>= phpEcho . map exprVal >> return Nothing
+evalStmt (Static vars) = mapM makeStatic vars >> return Nothing
+    where makeStatic var@(StaticVar name mval) = do
+              mfunc <- getCurrentFunction 
+              case mfunc of
+                Nothing -> return ()
+                Just func -> do
+                    statics <- getFunctionStatics func
+                    case lookup name statics of
+                        Nothing -> do
+                            putFunctionStatics func var >>= setVarRef name
+                            return ()
+                        _ -> return ()
+
 evalStmt (Global var) = do
     hasCtx <- isInFunctionContext
     if hasCtx == False
