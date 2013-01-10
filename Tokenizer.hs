@@ -6,6 +6,7 @@ import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Language
 import qualified Text.ParserCombinators.Parsec.Token as Token
+import StringParse
 
 data PHPValue = PHPString String
               | PHPInt Integer
@@ -79,9 +80,7 @@ langDef = emptyDef { Token.commentStart = "/*"
 
 lexer = Token.makeTokenParser langDef
 
-phpString = Token.lexeme lexer $ (between (string "\"") (string "\"") (many $ stringLetter '"')) <|> (between (string "'") (string "'") (many $ stringLetter '\''))
-    where
-        stringLetter q = satisfy (\c -> (c /= q))
+phpString = stringLit lexer '"' <|> stringLit lexer '\''
 
 identifier = Token.identifier lexer
 reserved = Token.reserved lexer
