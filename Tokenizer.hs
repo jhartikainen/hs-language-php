@@ -27,6 +27,7 @@ data PHPExpr = Literal PHPValue
              | UnaryExpr UnaryType UnaryOp PHPVariable
              | Call FunctionCall [PHPExpr]
              | Isset [PHPVariable]
+             | Print PHPExpr
              deriving (Show)
 
 data UnaryType = Before | After deriving (Show)
@@ -58,6 +59,7 @@ data PHPStmt = Seq [PHPStmt]
              | Function String [FunctionArgumentDef] PHPStmt
              | Return PHPExpr
              | While PHPExpr PHPStmt
+             | For [PHPExpr] [PHPExpr] [PHPExpr] PHPStmt
              | Echo [PHPExpr]
              | Global PHPVariable
              | Static [StaticVar]
@@ -119,6 +121,8 @@ sequenceOfStmt = do
 
 statementZeroOrMore = liftM Seq $ many oneStatement
 
+statementZeroOrOne = liftM Seq $ option [] (liftM (:[]) oneStatement)
+
 -- Match a valid PHP end of statement.
 -- Must have ; after expression, unless closing tag
 -- ?> comes immediately after
@@ -126,7 +130,15 @@ phpEnd = semi <|> try (string "?>")
 
 -- Parse a single PHP statement
 oneStatement :: Parser PHPStmt
-oneStatement = ifStmt <|> functionStmt <|> returnStmt <|> whileStmt <|> echoStmt <|> globalStmt <|> staticStmt <|> stmtExpr
+oneStatement = ifStmt
+            <|> functionStmt
+            <|> returnStmt
+            <|> whileStmt
+            <|> forStmt
+            <|> echoStmt
+            <|> globalStmt
+            <|> staticStmt
+            <|> stmtExpr
     -- Special case for an expression that's a statement
     -- Expressions can be used without a semicolon in the end in ifs or whatever, 
     -- but a valid statement expression needs a semi in the end
@@ -157,8 +169,8 @@ globalStmt = do
 
 echoStmt :: Parser PHPStmt
 echoStmt = do
-        reserved "echo" <|> reserved "print"
-        -- echo/print take one arg only if parens are used, otherwise 1 or more
+        reserved "echo"
+        -- echo take one arg only if parens are used, otherwise 1 or more
         args <- (liftM (:[]) $ parens phpExpression) <|> argList
         phpEnd
         return $ Echo args
@@ -194,6 +206,19 @@ whileStmt = do
     cond <- parens phpExpression
     stmt <- (braces statementZeroOrMore) <|> oneStatement
     return $ While cond stmt
+
+forStmt :: Parser PHPStmt
+forStmt = do
+    reserved "for"
+    (init, cond, iter) <- parens $ do
+        minit <- sepBy phpExpression (Token.symbol lexer ",")
+        semi
+        mcond <- sepBy phpExpression (Token.symbol lexer ",")
+        semi
+        miter <- sepBy phpExpression (Token.symbol lexer ",")
+        return (minit, mcond, miter)
+    body <- (braces statementZeroOrMore) <|> do { s <- statementZeroOrOne; semi; return s }
+    return $ For init cond iter body
 
 ifStmt :: Parser PHPStmt
 ifStmt = do
@@ -251,6 +276,7 @@ phpOperators = [ [Infix (reservedOp "*" >> return (BinaryExpr Multiply)) AssocLe
 
 phpTerm = parens phpExpression
        <|> try issetExpr
+       <|> try printExpr
        <|> try functionCallExpr
        <|> try assignExpr
        <|> variableExpr
@@ -289,6 +315,11 @@ functionCallExpr = try varCall <|> nameCall
             return $ Call (FunctionCall name) args
         argList = sepBy phpExpression (Token.symbol lexer ",")
 
+printExpr :: Parser PHPExpr
+printExpr = do
+        reserved "print"
+        arg <- parens phpExpression <|> phpExpression
+        return $ Print arg
 
 phpValue :: Parser PHPValue
 phpValue = (reserved "true" >> return (PHPBool True))

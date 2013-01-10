@@ -305,6 +305,7 @@ evalExpr (Isset vars) = liftM Literal $ isset vars
                        PHPNull -> return $ PHPBool False
                        _ -> isset xs
 
+evalExpr (Print expr) = evalExpr expr >>= phpEcho . (:[]) . exprVal >> (return $ Literal $ PHPInt 1)
 
 varName :: PHPVariable -> PHPEval String
 varName (PHPVariable n) = return n
@@ -370,6 +371,25 @@ evalStmt (If condExpr body mElse) = do
     if isTruthy condResult
       then evalStmt body
       else maybe (return Nothing) evalElseExpr mElse
+
+evalStmt w@(While cond body) = do
+    condResult <- liftM exprVal $ evalExpr cond
+    if isTruthy condResult
+      then do
+          evalStmt body
+          evalStmt w
+      else return Nothing
+
+evalStmt (For init cond iter body) = do
+        mapM_ evalExpr init
+        forMain cond iter body
+        return Nothing
+    where
+        forMain cond iter body = do
+            condTrue <- mapM evalExpr cond >>= return . all (isTruthy . exprVal)
+            when (condTrue || length cond == 0) $ void $ evalStmt body
+            mapM_ evalExpr iter
+            when (condTrue || length cond == 0) $ forMain cond iter body
 
 evalElseExpr :: ElseExpr -> PHPEval (Maybe PHPValue)
 evalElseExpr (Else stmt) = evalStmt stmt
