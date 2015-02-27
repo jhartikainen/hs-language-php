@@ -24,7 +24,7 @@ isTruthy = getBool . castToBool
     where getBool (PHPBool b) = b
 
 castToInt :: PHPValue -> PHPValue
-castToInt (PHPString _) = error "string to int behavior is not implemented"
+castToInt (PHPString a) = PHPInt $ read a :: PHPValue
 castToInt a@(PHPInt _) = a
 castToInt (PHPFloat a) = PHPInt $ floor a
 castToInt (PHPBool a) | a == True  = PHPInt 1
@@ -32,7 +32,7 @@ castToInt (PHPBool a) | a == True  = PHPInt 1
 castToInt PHPNull = PHPInt 0
 
 castToFloat :: PHPValue -> PHPValue
-castToFloat (PHPString _) = error "undefined behavior for string to float"
+castToFloat (PHPString a) = PHPFloat $ read a :: PHPValue
 castToFloat (PHPInt a) = PHPFloat $ fromInteger a
 castToFloat a@(PHPFloat _) = a
 castToFloat PHPNull = PHPFloat 0
