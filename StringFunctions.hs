@@ -7,9 +7,11 @@ import Control.Monad.Error
 import Data.Char
 
 functions :: [(String, PHPFunctionType)]
-functions = [ ("strlen", phpStrLen)
-            , ("strtoupper", phpStrToUpper)
-            , ("strtolower", phpStrToLower)]
+functions = [("strlen", phpStrLen)
+            ,("strtoupper", phpStrToUpper)
+            ,("strtolower", phpStrToLower)
+            ,("lcfirst", phpLcFirst)
+            ,("ucfirst", phpUcFirst)]
 
 -- Conversion of a PHPString for a Haskell [Char]
 toHaskellStr :: PHPValue -> String
@@ -29,3 +31,11 @@ phpStrToUpper _ = arityErrorFor "strtoupper"
 phpStrToLower :: PHPFunctionType
 phpStrToLower (s:[]) = return $ PHPString $ map toLower $ toHaskellStr s
 phpStrToLower _ = arityErrorFor "strtolower"
+
+phpLcFirst :: PHPFunctionType
+phpLcFirst (s:[]) = return $ PHPString $ (toLower $ head $ toHaskellStr s) : (tail $ toHaskellStr s)
+phpLcFirst _ = arityErrorFor "lcfirst"
+
+phpUcFirst :: PHPFunctionType
+phpUcFirst (s:[]) = return $ PHPString $ (toUpper $ head $ toHaskellStr s) : (tail $ toHaskellStr s)
+phpUcFirst _ = arityErrorFor "ucfirst"
